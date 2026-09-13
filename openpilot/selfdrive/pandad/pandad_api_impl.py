@@ -39,7 +39,11 @@ def can_list_to_can_capnp(can_msgs, msgtype='can', valid=True):
   """
   global _cached_writer_fields
 
-  dat = log.Event.new_message(valid=valid, logMonoTime=int(time.monotonic() * 1e9))
+  # pycapnp 2.2.x's kwargs path creates cyclic garbage; realtime processes run
+  # with garbage collection disabled, so assign these fields explicitly.
+  dat = log.Event.new_message()
+  dat.valid = valid
+  dat.logMonoTime = int(time.monotonic() * 1e9)
   can_data = dat.init(msgtype, len(can_msgs))
 
   # Cache schema fields on first call

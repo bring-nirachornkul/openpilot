@@ -20,18 +20,27 @@ void PandaSafety::configureSafetyMode(bool is_onroad) {
 }
 
 void PandaSafety::updateMultiplexingMode() {
-  // Initialize to ELM327 without OBD multiplexing for initial fingerprinting
+  // An inline panda with no relay must remain silent during passive CAN-only
+  // fingerprinting or it can starve the stock camera while acknowledging CAN.
+  bool skip_fw = getenv("SKIP_FW_QUERY") != nullptr;
   if (!initialized_) {
     prev_obd_multiplexing_ = false;
-    panda_->set_safety_model(cereal::CarParams::SafetyModel::ELM327, 1U);
+    if (skip_fw) {
+      panda_->set_safety_model(cereal::CarParams::SafetyModel::SILENT);
+    } else {
+      panda_->set_safety_model(cereal::CarParams::SafetyModel::ELM327, 1U);
+    }
     initialized_ = true;
   }
 
-  // Switch between multiplexing modes based on the OBD multiplexing request
+  // Only enter ELM327 while a firmware query is actually running. Still
+  // acknowledge the synchronization parameter when queries are skipped.
   bool obd_multiplexing_requested = params_.getBool("ObdMultiplexingEnabled");
   if (obd_multiplexing_requested != prev_obd_multiplexing_) {
-    const uint16_t safety_param = obd_multiplexing_requested ? 0U : 1U;
-    panda_->set_safety_model(cereal::CarParams::SafetyModel::ELM327, safety_param);
+    if (!skip_fw) {
+      const uint16_t safety_param = obd_multiplexing_requested ? 0U : 1U;
+      panda_->set_safety_model(cereal::CarParams::SafetyModel::ELM327, safety_param);
+    }
     prev_obd_multiplexing_ = obd_multiplexing_requested;
     params_.putBool("ObdMultiplexingChanged", true);
   }
