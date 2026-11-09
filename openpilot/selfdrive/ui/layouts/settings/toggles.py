@@ -28,6 +28,10 @@ DESCRIPTIONS = {
     "without a turn signal activated while driving over 31 mph (50 km/h)."
   ),
   "AlwaysOnDM": tr_noop("Enable driver monitoring even when openpilot is not engaged."),
+  "NudgelessLaneChange": tr_noop(
+    "Start a lane change with the turn signal alone, without nudging the steering wheel, above 20 mph. " +
+    "One lane change per signal. A vehicle in the blind spot blocks the change. Pressing the brake cancels it."
+  ),
   'RecordFront': tr_noop("Upload data from the cabin camera and help improve the driver monitoring algorithm."),
   "IsMetric": tr_noop("Display speed in km/h instead of mph."),
   "RecordAudio": tr_noop("Record and store microphone audio while driving. The audio will be included in the dashcam video in comma connect."),
@@ -64,6 +68,12 @@ class TogglesLayout(Widget):
         lambda: tr("Enable Lane Departure Warnings"),
         DESCRIPTIONS["IsLdwEnabled"],
         "warning.png",
+        False,
+      ),
+      "NudgelessLaneChange": (
+        lambda: tr("Nudgeless Lane Change"),
+        DESCRIPTIONS["NudgelessLaneChange"],
+        "chffr_wheel.png",
         False,
       ),
       "AlwaysOnDM": (

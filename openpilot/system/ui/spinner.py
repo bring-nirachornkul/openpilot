@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import pyray as rl
+import os
 import select
 import sys
 
@@ -27,6 +28,12 @@ FONT_SIZE = 96
 LINE_HEIGHT = 104
 DARKGRAY = (55, 55, 55, 255)
 
+# Optional brand logo shown inside the spinner ring instead of the comma logo.
+# Drop a square, transparent-background PNG at this path; it is scaled to fit inside the ring.
+# If the file is missing or fails to load, the stock comma logo is shown.
+BRAND_LOGO = "images/spinner_brand.png"
+BRAND_LOGO_SCALE = 0.55
+
 
 def clamp(value, min_value, max_value):
   return max(min(value, max_value), min_value)
@@ -35,11 +42,22 @@ def clamp(value, min_value, max_value):
 class Spinner(Widget):
   def __init__(self):
     super().__init__()
-    self._comma_texture = gui_app.texture("images/spinner_comma.png", TEXTURE_SIZE, TEXTURE_SIZE)
+    self._comma_texture = self._load_logo()
     self._spinner_texture = gui_app.texture("images/spinner_track.png", TEXTURE_SIZE, TEXTURE_SIZE, alpha_premultiply=True)
     self._rotation = 0.0
     self._progress: int | None = None
     self._wrapped_lines: list[str] = []
+
+  @staticmethod
+  def _load_logo():
+    try:
+      brand_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../selfdrive/assets", BRAND_LOGO)
+      if os.path.isfile(brand_path) and os.path.getsize(brand_path) > 1024:  # skip missing file or LFS pointer
+        size = round(TEXTURE_SIZE * BRAND_LOGO_SCALE)
+        return gui_app.texture(BRAND_LOGO, size, size)
+    except Exception:
+      pass
+    return gui_app.texture("images/spinner_comma.png", TEXTURE_SIZE, TEXTURE_SIZE)
 
   def set_text(self, text: str) -> None:
     if text.isdigit():
@@ -63,7 +81,7 @@ class Spinner(Widget):
 
     center = rl.Vector2(rect.width / 2.0, center_y)
     spinner_origin = rl.Vector2(TEXTURE_SIZE / 2.0, TEXTURE_SIZE / 2.0)
-    comma_position = rl.Vector2(center.x - TEXTURE_SIZE / 2.0, center.y - TEXTURE_SIZE / 2.0)
+    comma_position = rl.Vector2(center.x - self._comma_texture.width / 2.0, center.y - self._comma_texture.height / 2.0)
 
     delta_time = rl.get_frame_time()
     self._rotation = (self._rotation + DEGREES_PER_SECOND * delta_time) % 360.0

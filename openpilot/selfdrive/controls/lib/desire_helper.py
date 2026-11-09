@@ -1,5 +1,6 @@
 from openpilot.cereal import log
 from openpilot.common.constants import CV
+from openpilot.common.params import Params
 from openpilot.common.realtime import DT_MDL
 
 LaneChangeState = log.LaneChangeState
@@ -9,15 +10,16 @@ LANE_CHANGE_SPEED_MIN = 20 * CV.MPH_TO_MS
 LANE_CHANGE_TIME_MAX = 10.
 LANE_CHANGE_START_TIME = 0.5
 
-# Nudgeless lane change (BYD Atto 3 fork). The turn signal alone starts the change,
-# no steering-wheel nudge needed. Guards:
+# Nudgeless lane change (BYD Atto 3 fork), Settings toggle "NudgelessLaneChange",
+# default OFF (stock nudge-to-confirm). When ON, the turn signal alone starts the
+# change, no steering-wheel nudge needed. Guards:
 #  - one automatic change per blinker activation; holding the stalk does not chain
 #    changes. A second change needs blinker off/on, or a manual nudge.
 #  - blind spot blocks the change; once a blind-spot hit is seen, the zone must stay
 #    clear for AUTO_LANE_CHANGE_BSM_CLEAR_TIME before the change starts.
 #  - pressing the brake cancels the pending automatic change for this activation.
-AUTO_LANE_CHANGE = True
 AUTO_LANE_CHANGE_BSM_CLEAR_TIME = 1.0  # s
+PARAM_READ_INTERVAL = 1.0  # s, toggle is picked up only while no lane change is in progress
 
 class DesireHelper:
   def __init__(self):
@@ -30,6 +32,15 @@ class DesireHelper:
     self.bsm_clear_timer = 0.0
     self.bsm_seen = False
     self.prev_raw_one_blinker = False
+    self.params = Params()
+    self.nudgeless = False
+    self.param_timer = PARAM_READ_INTERVAL  # read on first update
+
+  def _read_params(self) -> None:
+    try:
+      self.nudgeless = self.params.get_bool("NudgelessLaneChange")
+    except Exception:
+      self.nudgeless = False  # fail safe: stock nudge-to-confirm
 
   @staticmethod
   def get_lane_change_direction(CS):
@@ -39,6 +50,11 @@ class DesireHelper:
     v_ego = carstate.vEgo
     one_blinker = carstate.leftBlinker != carstate.rightBlinker
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN
+
+    self.param_timer += DT_MDL
+    if self.param_timer >= PARAM_READ_INTERVAL and self.lane_change_state == LaneChangeState.off:
+      self.param_timer = 0.0
+      self._read_params()
 
     if not lateral_active or self.lane_change_timer > LANE_CHANGE_TIME_MAX:
       self.lane_change_state = LaneChangeState.off
@@ -52,7 +68,7 @@ class DesireHelper:
         self.lane_change_direction = self.get_lane_change_direction(carstate)
         # Arm one automatic change only on a real stalk activation, not when
         # engaging with the blinker already on
-        self.auto_lane_change_armed = AUTO_LANE_CHANGE and not self.prev_raw_one_blinker
+        self.auto_lane_change_armed = self.nudgeless and not self.prev_raw_one_blinker
         self.bsm_seen = False
         self.bsm_clear_timer = 0.0
 

@@ -9,12 +9,18 @@ controller behavior, or safety rules.
 Install this branch with the standard comma installer URL:
 
 ```text
-https://installer.comma.ai/bring-nirachornkul/byd-atto3-comma4
+https://installer.comma.ai/bring-nirachornkul/byd-atto3-comma4-v2
 ```
 
 The main repository pins account-owned `opendbc` and `panda` forks so a
 recursive installer clone includes the complete vehicle and firmware changes.
 The remaining submodules continue to use their upstream openpilot pins.
+
+## Nudgeless lane change toggle
+
+Default is stock nudge-to-confirm. Settings > Toggles > "nudgeless lane change"
+(param `NudgelessLaneChange`) lets the turn signal alone start one lane change.
+Shop install, test, and fallback steps: [BYD_SHOP_TEST.md](BYD_SHOP_TEST.md).
 
 ## Configuration switches
 

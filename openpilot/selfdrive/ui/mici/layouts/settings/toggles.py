@@ -46,6 +46,7 @@ class TogglesLayoutMici(NavScroller):
                                        toggle_callback=self._on_experimental_mode)
     is_metric_toggle = BigParamControl("use metric units", "IsMetric")
     ldw_toggle = BigParamControl("lane departure warnings", "IsLdwEnabled")
+    nudgeless_toggle = BigParamControl("nudgeless lane change", "NudgelessLaneChange")
     always_on_dm_toggle = BigParamControl("always-on driver monitor", "AlwaysOnDM")
     record_front = BigParamControl("record & upload cabin camera", "RecordFront", toggle_callback=restart_needed_callback)
     record_mic = BigParamControl("record & upload mic audio", "RecordAudio", toggle_callback=restart_needed_callback)
@@ -56,6 +57,7 @@ class TogglesLayoutMici(NavScroller):
       self._experimental_btn,
       is_metric_toggle,
       ldw_toggle,
+      nudgeless_toggle,
       always_on_dm_toggle,
       record_front,
       record_mic,
@@ -67,6 +69,7 @@ class TogglesLayoutMici(NavScroller):
       ("ExperimentalMode", self._experimental_btn),
       ("IsMetric", is_metric_toggle),
       ("IsLdwEnabled", ldw_toggle),
+      ("NudgelessLaneChange", nudgeless_toggle),
       ("AlwaysOnDM", always_on_dm_toggle),
       ("RecordFront", record_front),
       ("RecordAudio", record_mic),
