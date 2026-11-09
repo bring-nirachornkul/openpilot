@@ -9,6 +9,16 @@ LANE_CHANGE_SPEED_MIN = 20 * CV.MPH_TO_MS
 LANE_CHANGE_TIME_MAX = 10.
 LANE_CHANGE_START_TIME = 0.5
 
+# Nudgeless lane change (BYD Atto 3 fork). The turn signal alone starts the change,
+# no steering-wheel nudge needed. Guards:
+#  - one automatic change per blinker activation; holding the stalk does not chain
+#    changes. A second change needs blinker off/on, or a manual nudge.
+#  - blind spot blocks the change; once a blind-spot hit is seen, the zone must stay
+#    clear for AUTO_LANE_CHANGE_BSM_CLEAR_TIME before the change starts.
+#  - pressing the brake cancels the pending automatic change for this activation.
+AUTO_LANE_CHANGE = True
+AUTO_LANE_CHANGE_BSM_CLEAR_TIME = 1.0  # s
+
 class DesireHelper:
   def __init__(self):
     self.lane_change_state = LaneChangeState.off
@@ -16,6 +26,10 @@ class DesireHelper:
     self.lane_change_timer = 0.0
     self.prev_one_blinker = False
     self.desire = log.Desire.none
+    self.auto_lane_change_armed = False
+    self.bsm_clear_timer = 0.0
+    self.bsm_seen = False
+    self.prev_raw_one_blinker = False
 
   @staticmethod
   def get_lane_change_direction(CS):
@@ -36,6 +50,11 @@ class DesireHelper:
         self.lane_change_timer = 0.0
         # Initialize lane change direction to prevent UI alert flicker
         self.lane_change_direction = self.get_lane_change_direction(carstate)
+        # Arm one automatic change only on a real stalk activation, not when
+        # engaging with the blinker already on
+        self.auto_lane_change_armed = AUTO_LANE_CHANGE and not self.prev_raw_one_blinker
+        self.bsm_seen = False
+        self.bsm_clear_timer = 0.0
 
       elif self.lane_change_state == LaneChangeState.preLaneChange:
         # Update lane change direction
@@ -48,13 +67,26 @@ class DesireHelper:
         blindspot_detected = ((carstate.leftBlindspot and self.lane_change_direction == LaneChangeDirection.left) or
                               (carstate.rightBlindspot and self.lane_change_direction == LaneChangeDirection.right))
 
+        if blindspot_detected:
+          self.bsm_seen = True
+          self.bsm_clear_timer = 0.0
+        else:
+          self.bsm_clear_timer += DT_MDL
+
+        if carstate.brakePressed:
+          self.auto_lane_change_armed = False
+
+        bsm_settled = not self.bsm_seen or self.bsm_clear_timer >= AUTO_LANE_CHANGE_BSM_CLEAR_TIME
+        auto_start = self.auto_lane_change_armed and bsm_settled
+
         if not one_blinker or below_lane_change_speed:
           self.lane_change_state = LaneChangeState.off
           self.lane_change_direction = LaneChangeDirection.none
           self.lane_change_timer = 0.0
-        elif torque_applied and not blindspot_detected:
+        elif (torque_applied or auto_start) and not blindspot_detected:
           self.lane_change_state = LaneChangeState.laneChangeStarting
           self.lane_change_timer = 0.0
+          self.auto_lane_change_armed = False
 
       elif self.lane_change_state == LaneChangeState.laneChangeStarting:
         self.lane_change_timer += DT_MDL
@@ -69,6 +101,7 @@ class DesireHelper:
             self.lane_change_direction = LaneChangeDirection.none
 
     self.prev_one_blinker = one_blinker and lateral_active
+    self.prev_raw_one_blinker = one_blinker
 
     self.desire = log.Desire.none
     if self.lane_change_state == LaneChangeState.laneChangeStarting:
